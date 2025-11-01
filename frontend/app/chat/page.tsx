@@ -24,6 +24,8 @@ export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [longPressConvId, setLongPressConvId] = useState<number | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-scroll to bottom when messages change or streaming updates
   const scrollToBottom = () => {
@@ -78,62 +80,100 @@ export default function Chat() {
 
     const userMessage = message;
     setMessage('');
+
+    // Step 1: Immediately show user's message in the UI
+    const tempUserMessage = {
+      id: Date.now(),
+      role: 'user' as const,
+      content: userMessage,
+      sources: [],
+      created_at: new Date().toISOString()
+    };
+
+    if (!currentConversation) {
+      // Create new conversation with user's message
+      setCurrentConversation({
+        id: 0,
+        title: userMessage.slice(0, 50),
+        messages: [tempUserMessage],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    } else {
+      // Add user's message to existing conversation
+      setCurrentConversation({
+        ...currentConversation,
+        messages: [...currentConversation.messages, tempUserMessage]
+      });
+    }
+
+    // Step 2: Show loading (animated dots)
     setLoading(true);
 
     try {
       // Check if user is logged in
       if (!token && !localStorage.getItem('token')) {
-        // Anonymous mode - just show a demo response
+        // Anonymous mode - show demo response
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
+        
         const demoResponse = {
-          id: Date.now(),
-          role: 'assistant',
+          id: Date.now() + 1,
+          role: 'assistant' as const,
           content: `I received your message: "${userMessage}"\n\nTo use the full AI-powered chat with document search, please login or create an account using the button in the sidebar.\n\nWith an account, you can:\n- Upload documents\n- Get AI-powered answers from your documents\n- Save conversation history\n- Access analytics`,
           sources: [],
           created_at: new Date().toISOString()
         };
 
-        // Create a temporary conversation for display
-        if (!currentConversation) {
-          setCurrentConversation({
-            id: 0,
-            title: 'Demo Chat (Login to Save)',
-            messages: [
-              { id: Date.now() - 1, role: 'user', content: userMessage, sources: [], created_at: new Date().toISOString() },
-              demoResponse
-            ],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        } else {
-          setCurrentConversation({
-            ...currentConversation,
-            messages: [
-              ...currentConversation.messages,
-              { id: Date.now() - 1, role: 'user', content: userMessage, sources: [], created_at: new Date().toISOString() },
-              demoResponse
-            ]
-          });
-        }
         setLoading(false);
+        
+        // Step 3: Stream the response
+        setIsStreaming(true);
+        setStreamingText('');
+        
+        const fullText = demoResponse.content;
+        let currentIndex = 0;
+
+        const typingInterval = setInterval(() => {
+          if (currentIndex < fullText.length) {
+            setStreamingText(fullText.substring(0, currentIndex + 1));
+            currentIndex++;
+          } else {
+            clearInterval(typingInterval);
+            setIsStreaming(false);
+            setStreamingText('');
+            
+            // Add assistant's message to conversation
+            if (currentConversation) {
+              setCurrentConversation({
+                ...currentConversation,
+                messages: [...currentConversation.messages, demoResponse]
+              });
+            }
+          }
+        }, 20);
+        
         return;
       }
 
+      // Step 3: Send message to backend
       const response = await chat.sendMessage(userMessage, currentConversation?.id, ragMode);
 
-      // Get the full conversation with the new response
+      // Step 4: Get the full conversation with the new response
       let convResponse;
-      if (!currentConversation) {
+      if (!currentConversation || currentConversation.id === 0) {
         convResponse = await chat.getConversation(response.data.conversation_id);
         loadConversations();
       } else {
         convResponse = await chat.getConversation(currentConversation.id);
       }
 
-      // Find the assistant's response
+      setLoading(false);
+
+      // Step 5: Find the assistant's response
       const assistantMessage = convResponse.data.messages[convResponse.data.messages.length - 1];
 
       if (assistantMessage && assistantMessage.role === 'assistant') {
-        // Simulate typing effect
+        // Step 6: Stream the response with typing effect
         setIsStreaming(true);
         setStreamingText('');
 
@@ -147,6 +187,7 @@ export default function Chat() {
           } else {
             clearInterval(typingInterval);
             setIsStreaming(false);
+            setStreamingText('');
             setCurrentConversation(convResponse.data);
           }
         }, 20); // 20ms per character for smooth typing
@@ -155,9 +196,8 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Error sending message. Please try logging in.');
-    } finally {
       setLoading(false);
+      alert('Error sending message. Please try logging in.');
     }
   };
 
@@ -177,6 +217,33 @@ export default function Chat() {
   const handleLogout = () => {
     logout();
     router.push('/login');
+  };
+
+  const handleDeleteConversation = async (id: number) => {
+    try {
+      await chat.deleteConversation(id);
+      setLongPressConvId(null);
+      if (currentConversation?.id === id) {
+        setCurrentConversation(null);
+      }
+      await loadConversations();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Failed to delete conversation');
+    }
+  };
+
+  const handleLongPressStart = (id: number) => {
+    longPressTimerRef.current = setTimeout(() => {
+      setLongPressConvId(id);
+    }, 500); // 500ms long press
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   const handleCopyMessage = async (content: string, messageId: number) => {
@@ -262,16 +329,40 @@ export default function Chat() {
 
           <div className="flex-1 overflow-y-auto space-y-1 mb-4">
             {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => handleSelectConversation(conv.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors ${currentConversation?.id === conv.id
-                  ? darkMode ? 'bg-[#232323] text-white' : 'bg-gray-200 text-gray-900'
-                  : darkMode ? 'text-gray-400 hover:bg-[#232323] hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                  }`}
-              >
-                {conv.title}
-              </button>
+              <div key={conv.id} className="relative group">
+                <button
+                  onClick={() => handleSelectConversation(conv.id)}
+                  onMouseDown={() => handleLongPressStart(conv.id)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
+                  onTouchStart={() => handleLongPressStart(conv.id)}
+                  onTouchEnd={handleLongPressEnd}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors ${currentConversation?.id === conv.id
+                    ? darkMode ? 'bg-[#232323] text-white' : 'bg-gray-200 text-gray-900'
+                    : darkMode ? 'text-gray-400 hover:bg-[#232323] hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                    }`}
+                >
+                  {conv.title}
+                </button>
+                {longPressConvId === conv.id && (
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 rounded-lg backdrop-blur-sm z-10 px-2">
+                    <button
+                      onClick={() => handleDeleteConversation(conv.id)}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium transition-colors"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setLongPressConvId(null)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        darkMode ? 'bg-[#232323] hover:bg-[#2a2a2a] text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
