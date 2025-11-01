@@ -853,30 +853,53 @@ export default function Chat() {
 
                     <div className={`space-y-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       <p className="leading-relaxed">
-                        <strong className={darkMode ? 'text-white' : 'text-gray-900'}>EnterpriseChatGPT</strong> is an advanced AI-powered chat application built with enterprise-grade Retrieval-Augmented Generation (RAG 2.0) technology.
+                        <strong className={darkMode ? 'text-white' : 'text-gray-900'}>EnterpriseChatGPT</strong> is an advanced AI-powered chat application built with enterprise-grade Retrieval-Augmented Generation (RAG 2.0) technology, powered entirely by local open-source models.
                       </p>
 
                       <p className="leading-relaxed">
-                        Our platform enables organizations to leverage the power of large language models while maintaining complete control over their data and ensuring privacy compliance.
+                        Our platform enables organizations to leverage the power of large language models while maintaining complete control over their data, ensuring 100% privacy compliance, and eliminating ongoing API costs.
                       </p>
 
                       <div className="mt-6">
                         <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Key Features:</h4>
                         <ul className="list-disc list-inside space-y-2 ml-2">
-                          <li>100% Local AI Models - No data leaves your infrastructure</li>
+                          <li>100% Local AI Models - Powered by Llama 3.1 via Ollama</li>
+                          <li>Zero External API Calls - Complete data sovereignty</li>
                           <li>Advanced RAG 2.0 Pipeline with multi-stage retrieval</li>
-                          <li>Support for multiple document formats (PDF, DOCX, XLSX, etc.)</li>
-                          <li>Real-time chat with source citations</li>
-                          <li>Fast and Accurate modes for optimal performance</li>
-                          <li>Enterprise-ready with multi-tenancy support</li>
+                          <li>Local Embeddings - sentence-transformers/all-MiniLM-L6-v2</li>
+                          <li>Support for multiple document formats (PDF, DOCX, XLSX, TXT, etc.)</li>
+                          <li>Real-time chat with source citations and document references</li>
+                          <li>Fast Mode (5-15s) and Accurate Mode (60-90s) for optimal performance</li>
+                          <li>Enterprise-ready with multi-tenancy and role-based access</li>
+                          <li>GDPR, HIPAA, and SOC2 compliant architecture</li>
                         </ul>
                       </div>
 
-                      <div className="mt-6 pt-6 border-t ${darkMode ? 'border-[#2a2a2a]' : 'border-gray-200'}">
+                      <div className="mt-6">
+                        <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Technology Stack:</h4>
+                        <ul className="list-disc list-inside space-y-2 ml-2">
+                          <li><strong>LLM:</strong> Llama 3.1 8B (via Ollama)</li>
+                          <li><strong>Embeddings:</strong> sentence-transformers/all-MiniLM-L6-v2</li>
+                          <li><strong>Vector Store:</strong> ChromaDB</li>
+                          <li><strong>Backend:</strong> FastAPI + Python</li>
+                          <li><strong>Frontend:</strong> Next.js 14 + React + TypeScript</li>
+                          <li><strong>Database:</strong> PostgreSQL</li>
+                        </ul>
+                      </div>
+
+                      <div className={`mt-6 pt-6 border-t ${darkMode ? 'border-[#2a2a2a]' : 'border-gray-200'}`}>
                         <p className="text-sm">
                           <strong>Version:</strong> 2.0.0<br />
-                          <strong>Model:</strong> Llama 3.1 8B (Local)<br />
+                          <strong>LLM Model:</strong> Llama 3.1 8B (Local via Ollama)<br />
+                          <strong>Embedding Model:</strong> all-MiniLM-L6-v2 (Local)<br />
+                          <strong>Deployment:</strong> 100% On-Premise<br />
                           <strong>License:</strong> Enterprise
+                        </p>
+                      </div>
+
+                      <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-blue-600/10 border border-blue-600/20' : 'bg-blue-50 border border-blue-200'}`}>
+                        <p className="text-sm leading-relaxed">
+                          <strong className={darkMode ? 'text-blue-400' : 'text-blue-700'}>Privacy First:</strong> All AI processing happens locally on your infrastructure. No data is ever sent to external APIs like OpenAI, Anthropic, or any third-party services. Your documents and conversations remain completely private and secure.
                         </p>
                       </div>
                     </div>
