@@ -115,7 +115,7 @@ export default function Chat() {
       if (!token && !localStorage.getItem('token')) {
         // Anonymous mode - show demo response
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-        
+
         const demoResponse = {
           id: Date.now() + 1,
           role: 'assistant' as const,
@@ -125,11 +125,11 @@ export default function Chat() {
         };
 
         setLoading(false);
-        
+
         // Step 3: Stream the response
         setIsStreaming(true);
         setStreamingText('');
-        
+
         const fullText = demoResponse.content;
         let currentIndex = 0;
 
@@ -141,7 +141,7 @@ export default function Chat() {
             clearInterval(typingInterval);
             setIsStreaming(false);
             setStreamingText('');
-            
+
             // Add assistant's message to conversation
             if (currentConversation) {
               setCurrentConversation({
@@ -151,7 +151,7 @@ export default function Chat() {
             }
           }
         }, 20);
-        
+
         return;
       }
 
@@ -309,11 +309,37 @@ export default function Chat() {
 
   return (
     <div className={`flex h-screen ${darkMode ? 'bg-[#171717]' : 'bg-white'}`}>
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} ${darkMode ? 'bg-[#171717] border-r border-[#2a2a2a]' : 'bg-gray-50 border-r border-gray-200'} transition-all duration-300 overflow-hidden flex flex-col h-screen`}>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Mobile responsive */}
+      <div className={`
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+        ${sidebarOpen ? 'w-64' : 'md:w-0'}
+        fixed md:relative
+        z-50 md:z-auto
+        ${darkMode ? 'bg-[#171717] border-r border-[#2a2a2a]' : 'bg-gray-50 border-r border-gray-200'} 
+        transition-all duration-300 
+        flex flex-col h-screen
+        md:overflow-hidden
+      `}>
         <div className="p-4 flex flex-col h-full">
-          <div className="mb-6 text-center">
+          <div className="mb-6 flex items-center justify-between">
             <h1 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>EnterpriseChatGPT</h1>
+            {/* Close button for mobile */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className={`md:hidden p-1.5 rounded-lg ${darkMode ? 'hover:bg-[#232323]' : 'hover:bg-gray-200'}`}
+              aria-label="Close menu"
+            >
+              <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+            </button>
           </div>
 
           <button
@@ -354,9 +380,8 @@ export default function Chat() {
                     </button>
                     <button
                       onClick={() => setLongPressConvId(null)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        darkMode ? 'bg-[#232323] hover:bg-[#2a2a2a] text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                      }`}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${darkMode ? 'bg-[#232323] hover:bg-[#2a2a2a] text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                        }`}
                     >
                       Cancel
                     </button>
@@ -452,7 +477,7 @@ export default function Chat() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
         {/* Messages Area - Full height with padding for header/input */}
-        <div ref={messagesContainerRef} className={`absolute inset-0 overflow-y-auto ${darkMode ? 'bg-[#171717]' : 'bg-white'}`} style={{ paddingTop: '73px', paddingBottom: '100px' }}>
+        <div ref={messagesContainerRef} className={`absolute inset-0 overflow-y-auto ${darkMode ? 'bg-[#171717]' : 'bg-white'}`} style={{ paddingTop: '120px', paddingBottom: '90px' }}>
           {!hasMessages ? (
             // Centered welcome screen
             <div className="h-full flex flex-col items-center justify-center px-4">
@@ -571,99 +596,110 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Header - Glassmorphic - Absolute at top */}
-        <div className={`absolute top-0 left-0 right-0 z-10 px-6 py-4 flex items-center justify-between backdrop-blur-xl ${darkMode
+        {/* Header - Mobile Responsive */}
+        <div className={`absolute top-0 left-0 right-0 z-10 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between backdrop-blur-xl ${darkMode
           ? 'bg-[#171717]/30 border-b border-[#2a2a2a]/30'
           : 'bg-white/30 border-b border-gray-200/30'
           }`}
           style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
         >
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`p-2 rounded-lg ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
-            >
-              <Menu size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
-            </button>
-            <h2 className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              {currentConversation?.title || 'New Conversation'}
-            </h2>
-          </div>
+          {/* Left: Hamburger Menu */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
+            aria-label="Toggle menu"
+          >
+            <Menu size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+          </button>
 
-          {/* Mode Selector */}
-          <div className="flex items-center gap-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Mode:</span>
-            <button
-              onClick={() => setRagMode('fast')}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
-                ? darkMode
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                  : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
-                : darkMode
-                  ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
-                  : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
-                }`}
-            >
-              Fast (5-15s)
-            </button>
-            <button
-              onClick={() => setRagMode('accurate')}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'accurate'
-                ? darkMode
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                  : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
-                : darkMode
-                  ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
-                  : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
-                }`}
-            >
-              Accurate (60-90s)
-            </button>
-          </div>
+          {/* Center: Title (hidden on mobile) */}
+          <h2 className={`hidden md:block text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            {currentConversation?.title || 'New Conversation'}
+          </h2>
+
+          {/* Right: New Chat Button */}
+          <button
+            onClick={handleNewChat}
+            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
+            aria-label="New chat"
+          >
+            <Plus size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+          </button>
         </div>
 
-        {/* Input Area - Glassmorphic - Absolute at bottom */}
-        <div className={`absolute bottom-0 left-0 right-0 z-10 backdrop-blur-xl ${darkMode ? 'bg-[#171717]/30 border-t border-[#2a2a2a]/30' : 'bg-white/30 border-t border-gray-200/30'
-          }`}
-          style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
-        >
-          <div className="max-w-3xl mx-auto px-4 py-4">
-            <form onSubmit={handleSendMessage}>
-              <div className={`flex items-center gap-2 rounded-2xl border backdrop-blur-lg ${darkMode
-                ? 'bg-[#232323]/50 border-[#333333]/50 shadow-lg'
-                : 'bg-white/50 border-gray-300/50 shadow-lg'
-                }`}
-                style={{ backdropFilter: 'blur(8px)' }}
+        {/* Mode Selector - Below header on mobile, inline on desktop */}
+        <div className={`absolute top-14 md:top-4 right-4 z-10 flex items-center gap-2 ${darkMode ? 'bg-[#171717]/80' : 'bg-white/80'} backdrop-blur-md rounded-lg px-2 py-1.5 md:bg-transparent md:backdrop-blur-none md:px-0 md:py-0`}>
+          <span className={`text-xs hidden md:inline ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Mode:</span>
+          <button
+            onClick={() => setRagMode('fast')}
+            className={`px-2 md:px-3 py-1 md:py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
+              ? darkMode
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
+                : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
+              : darkMode
+                ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
+                : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
+              }`}
+          >
+            Fast (5-15s)
+          </button>
+          <button
+            onClick={() => setRagMode('accurate')}
+            className={`px-3 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'accurate'
+              ? darkMode
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
+                : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
+              : darkMode
+                ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
+                : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
+              }`}
+          >
+            Accurate (60-90s)
+          </button>
+        </div>
+      </div>
+
+      {/* Input Area - Mobile Responsive - Fixed at bottom */}
+      <div className={`absolute bottom-0 left-0 right-0 z-10 backdrop-blur-xl ${darkMode ? 'bg-[#171717]/30 border-t border-[#2a2a2a]/30' : 'bg-white/30 border-t border-gray-200/30'
+        }`}
+        style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+      >
+        <div className="max-w-3xl mx-auto px-3 md:px-4 py-3 md:py-4">
+          <form onSubmit={handleSendMessage}>
+            <div className={`flex items-center gap-1 md:gap-2 rounded-2xl md:rounded-2xl border backdrop-blur-lg ${darkMode
+              ? 'bg-[#232323]/50 border-[#333333]/50 shadow-lg'
+              : 'bg-white/50 border-gray-300/50 shadow-lg'
+              }`}
+              style={{ backdropFilter: 'blur(8px)' }}
+            >
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ask EnterpriseChatGPT..."
+                className={`flex-1 px-3 md:px-5 py-2.5 md:py-3.5 bg-transparent rounded-2xl focus:outline-none text-sm ${darkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
+                  }`}
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={loading || !message.trim()}
+                className={`mr-1 md:mr-2 p-2 md:p-2.5 rounded-xl transition-colors ${message.trim() && !loading
+                  ? darkMode
+                    ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400'
+                    : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-600'
+                  : darkMode ? 'bg-[#2a2a2a]/50 text-gray-500' : 'bg-gray-200/50 text-gray-400'
+                  } disabled:cursor-not-allowed`}
               >
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Ask EnterpriseChatGPT..."
-                  className={`flex-1 px-5 py-3.5 bg-transparent rounded-2xl focus:outline-none text-sm ${darkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
-                    }`}
-                  disabled={loading}
-                />
-                <button
-                  type="submit"
-                  disabled={loading || !message.trim()}
-                  className={`mr-2 p-2.5 rounded-xl transition-colors ${message.trim() && !loading
-                    ? darkMode
-                      ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400'
-                      : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-600'
-                    : darkMode ? 'bg-[#2a2a2a]/50 text-gray-500' : 'bg-gray-200/50 text-gray-400'
-                    } disabled:cursor-not-allowed`}
-                >
-                  <Send size={18} />
-                </button>
-              </div>
-            </form>
-            {!hasMessages && (
-              <p className={`text-center text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                EnterpriseChatGPT can make mistakes. Check important info.
-              </p>
-            )}
-          </div>
+                <Send size={18} className="md:w-[18px] md:h-[18px] w-[16px] h-[16px]" />
+              </button>
+            </div>
+          </form>
+          {!hasMessages && (
+            <p className={`text-center text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+              EnterpriseChatGPT can make mistakes. Check important info.
+            </p>
+          )}
         </div>
       </div>
 
@@ -767,7 +803,7 @@ export default function Chat() {
                       <div className="flex items-center gap-4">
                         {avatarUrl ? (
                           <img
-                            src={avatarUrl}
+                            src={avatarUrl || undefined}
                             alt="User avatar"
                             className="w-20 h-20 rounded-full object-cover"
                           />
@@ -909,7 +945,8 @@ export default function Chat() {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }
