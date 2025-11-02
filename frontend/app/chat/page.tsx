@@ -323,7 +323,7 @@ export default function Chat() {
         md:translate-x-0
         ${sidebarOpen ? 'w-64' : 'md:w-0'}
         fixed md:relative
-        z-50 md:z-auto
+        z-50
         ${darkMode ? 'bg-[#171717] border-r border-[#2a2a2a]' : 'bg-gray-50 border-r border-gray-200'} 
         transition-all duration-300 
         flex flex-col h-screen
