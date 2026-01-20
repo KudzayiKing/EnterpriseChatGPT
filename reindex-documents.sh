@@ -1,0 +1,26 @@
+#!/bin/bash
+
+echo "🔄 Re-indexing documents with improved RAG settings"
+echo "=================================================="
+echo ""
+
+echo "The RAG configuration has been updated with:"
+echo "  ✓ Larger chunk size (1000 tokens)"
+echo "  ✓ More overlap (200 tokens)"
+echo "  ✓ More retrieval candidates (15)"
+echo "  ✓ Better prompts for price extraction"
+echo ""
+
+echo "To apply these changes, you need to:"
+echo ""
+echo "1. Go to http://localhost:3001/documents"
+echo "2. Delete the existing land_services.txt document"
+echo "3. Re-upload the land_services.txt file"
+echo ""
+echo "OR restart the backend to apply the new settings:"
+echo ""
+echo "  pkill -f 'uvicorn app.main:app'"
+echo "  cd backend && source venv/bin/activate"
+echo "  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+echo ""
+echo "Then try your query again!"

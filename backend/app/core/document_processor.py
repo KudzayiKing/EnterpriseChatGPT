@@ -16,7 +16,7 @@ except ImportError:
     HuggingFaceEmbeddings = None
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-import PyPDF2
+import fitz  # PyMuPDF
 from docx import Document as DocxDocument
 from pptx import Presentation
 import openpyxl
@@ -49,7 +49,8 @@ class DocumentProcessor:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
-            separators=["\n\n", "\n", ". ", " ", ""]
+            separators=["\n## ", "\n### ", "\n\n", "\n", ". ", " ", ""],  # Keep markdown sections together
+            keep_separator=True  # Keep the separator (headers) with the chunk
         )
         self.chroma_client = chromadb.PersistentClient(
             path=settings.CHROMA_PERSIST_DIR,
@@ -112,12 +113,45 @@ class DocumentProcessor:
             raise ValueError(f"Unsupported file type: {file_type}")
     
     async def _extract_pdf(self, file_path: str) -> str:
-        """Extract text from PDF"""
+        """Extract text from PDF with structure preservation using PyMuPDF"""
         text = ""
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n\n"
+        doc = fitz.open(file_path)
+        
+        for page_num, page in enumerate(doc):
+            # Get text with layout preservation
+            blocks = page.get_text("dict")["blocks"]
+            
+            for block in blocks:
+                if block["type"] == 0:  # Text block
+                    for line in block["lines"]:
+                        line_text = ""
+                        for span in line["spans"]:
+                            # Check if this is likely a header (larger font or bold)
+                            font_size = span["size"]
+                            font_flags = span["flags"]
+                            is_bold = font_flags & 2**4  # Bold flag
+                            
+                            span_text = span["text"]
+                            
+                            # Add markdown formatting for headers
+                            if font_size > 14 or is_bold:
+                                # Likely a header
+                                if span_text.strip():
+                                    line_text += f"\n## {span_text}"
+                            else:
+                                line_text += span_text
+                        
+                        if line_text.strip():
+                            text += line_text + "\n"
+                    
+                    text += "\n"  # Paragraph break
+        
+        doc.close()
+        
+        # Clean up excessive newlines
+        import re
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
         return text
     
     async def _extract_docx(self, file_path: str) -> str:
@@ -156,9 +190,13 @@ class DocumentProcessor:
         return text
     
     async def _extract_txt(self, file_path: str) -> str:
-        """Extract text from TXT"""
+        """Extract text from TXT - preserve markdown structure"""
         with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
+            content = file.read()
+            # Ensure markdown headers have proper spacing
+            content = content.replace('\n## ', '\n\n## ')
+            content = content.replace('\n### ', '\n\n### ')
+            return content
     
     async def smart_chunking(
         self,

@@ -8,6 +8,7 @@ from app.db.database import get_db
 from app.db.models import User, Conversation, Message
 from app.api.v1.auth import get_current_user
 from app.core.config import settings
+from app.core.action_suggester import ActionSuggester
 
 # Use local or cloud RAG based on configuration
 if getattr(settings, 'USE_LOCAL_MODELS', False):
@@ -17,6 +18,7 @@ else:
 
 router = APIRouter()
 rag_orchestrator = RAG2Orchestrator()
+action_suggester = ActionSuggester()
 
 class MessageCreate(BaseModel):
     content: str
@@ -28,6 +30,7 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     sources: List[Dict[str, Any]] = []
+    suggested_actions: List[Dict[str, Any]] = []
     created_at: datetime
     
     class Config:
@@ -108,6 +111,13 @@ async def send_message(
         # Restore original mode
         settings.RAG_MODE = original_mode
         
+        # Suggest actions based on query and response
+        suggested_actions = action_suggester.suggest_actions(
+            query=message.content,
+            response=rag_response["answer"],
+            sources=rag_response["sources"]
+        )
+        
         # Save assistant message
         assistant_message = Message(
             conversation_id=conversation.id,
@@ -120,10 +130,20 @@ async def send_message(
         db.commit()
         db.refresh(assistant_message)
         
-        return {
-            "message": assistant_message,
+        # Add suggested actions to response (not stored in DB)
+        response_dict = {
+            "message": {
+                "id": assistant_message.id,
+                "role": assistant_message.role,
+                "content": assistant_message.content,
+                "sources": assistant_message.sources or [],
+                "suggested_actions": suggested_actions,
+                "created_at": assistant_message.created_at
+            },
             "conversation_id": conversation.id
         }
+        
+        return response_dict
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")

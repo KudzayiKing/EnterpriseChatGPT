@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Enterprise RAG 2.0',
+  title: 'IremboChat - AI Assistant',
   description: 'Advanced AI chat with document processing',
 }
 

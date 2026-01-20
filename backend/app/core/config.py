@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
     # OpenAI (optional - only if not using local models)
     OPENAI_API_KEY: str = "not-needed"
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     
     # Ollama configuration (for local models)
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3.1:8b"
+    OLLAMA_MODEL: str = "llama3.2:3b"  # Faster 3B model for better performance
     LOCAL_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     
     # Application
@@ -34,13 +34,13 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     
     # RAG Configuration
-    CHUNK_SIZE: int = 512
-    CHUNK_OVERLAP: int = 50
-    TOP_K_RETRIEVAL: int = 10
-    RERANK_TOP_K: int = 5
+    CHUNK_SIZE: int = 1000  # Larger chunks to keep context together
+    CHUNK_OVERLAP: int = 200  # More overlap to avoid splitting related info
+    TOP_K_RETRIEVAL: int = 5  # Reduced for faster retrieval
+    RERANK_TOP_K: int = 3  # Fewer chunks = faster generation
     
     # Performance Mode: "fast" or "accurate"
-    # fast: Skip query expansion, reranking, verification (5-15 seconds)
+    # fast: Skip query expansion, reranking, verification (3-8 seconds)
     # accurate: Full RAG 2.0 pipeline (60-90 seconds)
     RAG_MODE: str = "fast"
     

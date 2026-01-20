@@ -44,12 +44,15 @@ class RAG2OrchestratorLocal:
             encode_kwargs={'normalize_embeddings': True}
         )
         
-        # Local LLM via Ollama
+        # Local LLM via Ollama - Optimized for speed
         logger.info("Initializing local LLM (Ollama)...")
         self.llm = Ollama(
-            model="llama3.1:8b",  # or "mistral:7b"
+            model="llama3.2:3b",  # Faster 3B model
             base_url="http://localhost:11434",
-            temperature=0.7
+            temperature=0.3,  # Lower temperature for faster, more focused responses
+            num_predict=256,  # Limit response length for speed
+            top_k=10,  # Reduce sampling space
+            top_p=0.9,  # Nucleus sampling for quality
         )
         
         # Local reranker
@@ -194,11 +197,18 @@ class RAG2OrchestratorLocal:
             
             # Simple prompt without verification
             prompt = f"""Based on the following context, answer the question concisely and accurately.
+If the context contains specific prices, fees, or costs, include them in your answer with the exact amounts.
 
 Context:
 {context}
 
 Question: {query}
+
+Instructions:
+- Answer based ONLY on the information in the context above
+- If you find a price or fee, state it clearly with the exact amount
+- If the information is not in the context, say so
+- Be specific and cite which source contains the information
 
 Answer:"""
             

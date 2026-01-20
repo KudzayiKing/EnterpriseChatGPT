@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { chat, auth } from '@/lib/api';
-import { MessageSquare, Upload, BarChart3, LogOut, Send, Plus, Menu, Sun, Moon, Copy, Download, Check, MoreVertical, X, Settings, User, Info } from 'lucide-react';
+import { MessageSquare, Upload, BarChart3, LogOut, Send, Plus, Menu, Sun, Moon, Copy, Download, Check, MoreVertical, X, Settings, User, Info, Home, FileText, Clock, Edit, RefreshCw, Plane, CreditCard, Ticket, DollarSign, CheckSquare, Search, MessageCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 export default function Chat() {
@@ -26,6 +26,188 @@ export default function Chat() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [longPressConvId, setLongPressConvId] = useState<number | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState<number>(0);
+  const [totalMessages, setTotalMessages] = useState<number>(0);
+
+  // Icon mapping for action buttons
+  const getActionIcon = (actionId: string) => {
+    const iconMap: { [key: string]: any } = {
+      'register_land': Home,
+      'view_requirements': FileText,
+      'check_processing_time': Clock,
+      'transfer_title': Edit,
+      'view_transfer_requirements': FileText,
+      'compare_transfer_types': RefreshCw,
+      'subdivide_land': Edit,
+      'subdivision_cost': DollarSign,
+      'apply_visa': Plane,
+      'visa_types': CreditCard,
+      'visa_requirements': FileText,
+      'apply_passport': FileText,
+      'passport_renewal': RefreshCw,
+      'passport_cost': DollarSign,
+      'apply_resident_id': User,
+      'resident_requirements': FileText,
+      'apply_laissez_passer': Ticket,
+      'laissez_passer_info': Info,
+      'browse_services': Search,
+      'contact_support': MessageCircle,
+      'view_all_prices': DollarSign,
+      'prepare_documents': CheckSquare,
+    };
+    return iconMap[actionId] || MessageCircle;
+  };
+
+  // Handle action button click - auto-submit for chat actions
+  const handleActionClick = async (action: any) => {
+    if (action.action === 'chat') {
+      // Auto-submit the message instead of just populating input
+      const userMessage = action.message;
+      
+      // Add user message to conversation immediately
+      const tempUserMessage = {
+        id: Date.now(),
+        role: 'user' as const,
+        content: userMessage,
+        sources: [],
+        created_at: new Date().toISOString()
+      };
+
+      if (currentConversation) {
+        setCurrentConversation({
+          ...currentConversation,
+          messages: [...currentConversation.messages, tempUserMessage]
+        });
+      }
+
+      // Send message
+      setLoading(true);
+      try {
+        const response = await chat.sendMessage(userMessage, currentConversation?.id, ragMode);
+        const assistantMessageWithActions = response.data.message;
+
+        let convResponse;
+        if (!currentConversation || currentConversation.id === 0) {
+          convResponse = await chat.getConversation(response.data.conversation_id);
+          loadConversations();
+        } else {
+          convResponse = await chat.getConversation(currentConversation.id);
+        }
+
+        setLoading(false);
+
+        if (convResponse.data.messages.length > 0) {
+          const lastMessage = convResponse.data.messages[convResponse.data.messages.length - 1];
+          lastMessage.suggested_actions = assistantMessageWithActions.suggested_actions;
+        }
+
+        if (assistantMessageWithActions && assistantMessageWithActions.role === 'assistant') {
+          setIsStreaming(true);
+          setStreamingText('');
+
+          const fullText = assistantMessageWithActions.content;
+          let currentIndex = 0;
+
+          const typingInterval = setInterval(() => {
+            if (currentIndex < fullText.length) {
+              setStreamingText(fullText.substring(0, currentIndex + 1));
+              currentIndex++;
+            } else {
+              clearInterval(typingInterval);
+              setIsStreaming(false);
+              setStreamingText('');
+              setCurrentConversation(convResponse.data);
+            }
+          }, 20);
+        } else {
+          setCurrentConversation(convResponse.data);
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        setLoading(false);
+        alert('Error sending message. Please try again.');
+      }
+    } else if (action.action === 'external') {
+      window.open(action.url, '_blank');
+    }
+  };
+
+  // Update message counts when conversation changes
+  useEffect(() => {
+    if (currentConversation && currentConversation.messages) {
+      const userMessages = currentConversation.messages.filter(m => m.role === 'user');
+      setTotalMessages(userMessages.length);
+      setCurrentMessageIndex(userMessages.length);
+    } else {
+      setTotalMessages(0);
+      setCurrentMessageIndex(0);
+    }
+  }, [currentConversation]);
+
+  // Detect which message is in view while scrolling
+  useEffect(() => {
+    if (!currentConversation || !currentConversation.messages) return;
+
+    const handleScroll = () => {
+      const userMessages = currentConversation.messages.filter(m => m.role === 'user');
+      if (userMessages.length === 0) return;
+
+      // Find which message is closest to the center of the viewport
+      const viewportCenter = window.innerHeight / 2;
+      let closestIndex = 1;
+      let closestDistance = Infinity;
+
+      userMessages.forEach((msg, idx) => {
+        const element = document.getElementById(`message-${msg.id}`);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          const elementCenter = rect.top + rect.height / 2;
+          const distance = Math.abs(elementCenter - viewportCenter);
+
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = idx + 1;
+          }
+        }
+      });
+
+      setCurrentMessageIndex(closestIndex);
+    };
+
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [currentConversation]);
+
+  // Navigate to specific message pair (question + answer)
+  const navigateToMessage = (index: number) => {
+    if (!currentConversation || !currentConversation.messages) return;
+    
+    const userMessages = currentConversation.messages.filter(m => m.role === 'user');
+    if (index < 1 || index > userMessages.length) return;
+    
+    const targetMessage = userMessages[index - 1];
+    const messageElement = document.getElementById(`message-${targetMessage.id}`);
+    
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setCurrentMessageIndex(index);
+    }
+  };
+
+  const navigatePrevious = () => {
+    if (currentMessageIndex > 1) {
+      navigateToMessage(currentMessageIndex - 1);
+    }
+  };
+
+  const navigateNext = () => {
+    if (currentMessageIndex < totalMessages) {
+      navigateToMessage(currentMessageIndex + 1);
+    }
+  };
 
   // Auto-scroll to bottom when messages change or streaming updates
   const scrollToBottom = () => {
@@ -158,7 +340,10 @@ export default function Chat() {
       // Step 3: Send message to backend
       const response = await chat.sendMessage(userMessage, currentConversation?.id, ragMode);
 
-      // Step 4: Get the full conversation with the new response
+      // Step 4: Get the assistant message with suggested actions from response
+      const assistantMessageWithActions = response.data.message;
+
+      // Step 5: Get the full conversation for other messages
       let convResponse;
       if (!currentConversation || currentConversation.id === 0) {
         convResponse = await chat.getConversation(response.data.conversation_id);
@@ -169,15 +354,19 @@ export default function Chat() {
 
       setLoading(false);
 
-      // Step 5: Find the assistant's response
-      const assistantMessage = convResponse.data.messages[convResponse.data.messages.length - 1];
+      // Step 6: Update the last message with suggested actions
+      if (convResponse.data.messages.length > 0) {
+        const lastMessage = convResponse.data.messages[convResponse.data.messages.length - 1];
+        // Add suggested actions to the last message
+        lastMessage.suggested_actions = assistantMessageWithActions.suggested_actions;
+      }
 
-      if (assistantMessage && assistantMessage.role === 'assistant') {
-        // Step 6: Stream the response with typing effect
+      // Step 7: Stream the response with typing effect
+      if (assistantMessageWithActions && assistantMessageWithActions.role === 'assistant') {
         setIsStreaming(true);
         setStreamingText('');
 
-        const fullText = assistantMessage.content;
+        const fullText = assistantMessageWithActions.content;
         let currentIndex = 0;
 
         const typingInterval = setInterval(() => {
@@ -194,10 +383,16 @@ export default function Chat() {
       } else {
         setCurrentConversation(convResponse.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
       setLoading(false);
-      alert('Error sending message. Please try logging in.');
+      
+      if (error.response?.status === 401) {
+        // Token expired - user will be redirected by interceptor
+        alert('Your session has expired. Please log in again.');
+      } else {
+        alert('Error sending message. Please check your connection and try again.');
+      }
     }
   };
 
@@ -330,16 +525,25 @@ export default function Chat() {
         md:overflow-hidden
       `}>
         <div className="p-4 flex flex-col h-full">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>EnterpriseChatGPT</h1>
-            {/* Close button for mobile */}
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className={`md:hidden p-1.5 rounded-lg ${darkMode ? 'hover:bg-[#232323]' : 'hover:bg-gray-200'}`}
-              aria-label="Close menu"
-            >
-              <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
-            </button>
+          <div className="mb-6">
+            {/* Mobile close button */}
+            <div className="flex justify-end md:hidden mb-2">
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className={`p-1.5 rounded-lg ${darkMode ? 'hover:bg-[#232323]' : 'hover:bg-gray-200'}`}
+                aria-label="Close menu"
+              >
+                <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+              </button>
+            </div>
+            {/* Logo */}
+            <div className="flex items-center justify-center">
+              <img 
+                src="https://ik.imagekit.io/ojfedrprt/irembogov-logo.png" 
+                alt="Irembo Logo" 
+                className="h-16 w-auto"
+              />
+            </div>
           </div>
 
           <button
@@ -494,7 +698,7 @@ export default function Chat() {
             // Messages list
             <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
               {currentConversation.messages.map((msg) => (
-                <div key={msg.id} className="space-y-2">
+                <div key={msg.id} id={`message-${msg.id}`} className="space-y-2">
                   {msg.role === 'user' ? (
                     <div className="flex justify-end">
                       <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${darkMode ? 'bg-blue-600/20 text-blue-100' : 'bg-blue-600/20 text-blue-900'
@@ -556,6 +760,47 @@ export default function Chat() {
                             <span>Download</span>
                           </button>
                         </div>
+
+                        {/* Suggested Actions */}
+                        {msg.suggested_actions && msg.suggested_actions.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-dashed" style={{ borderColor: darkMode ? '#333333' : '#e5e7eb' }}>
+                            <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+                              <Info size={14} className="text-blue-500" />
+                              <span>Suggested Actions</span>
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {msg.suggested_actions.map((action: any) => {
+                                const IconComponent = getActionIcon(action.id);
+                                return (
+                                  <button
+                                    key={action.id}
+                                    onClick={() => handleActionClick(action)}
+                                    className={`
+                                      flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+                                      transition-all duration-200 transform hover:scale-105
+                                      ${action.type === 'primary'
+                                        ? darkMode
+                                          ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30'
+                                          : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-600 border border-blue-600/30'
+                                        : darkMode
+                                          ? 'bg-[#2a2a2a] hover:bg-[#333333] text-gray-300 border border-[#404040]'
+                                          : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm'
+                                      }
+                                    `}
+                                  >
+                                    <IconComponent size={16} />
+                                    <span>{action.label}</span>
+                                    {action.action === 'external' && (
+                                      <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -657,6 +902,27 @@ export default function Chat() {
             Accurate (60-90s)
           </button>
         </div>
+
+        {/* Message Navigation Dots - Horizontal pills in vertical column */}
+        {hasMessages && totalMessages > 1 && (
+          <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-10 flex flex-col gap-2">
+            {Array.from({ length: totalMessages }, (_, i) => i + 1).map((index) => (
+              <button
+                key={index}
+                onClick={() => navigateToMessage(index)}
+                className={`h-2 w-8 rounded-full transition-all duration-300 ${
+                  index === currentMessageIndex
+                    ? 'bg-blue-500 w-10'
+                    : darkMode
+                      ? 'bg-gray-600 hover:bg-gray-500'
+                      : 'bg-gray-300 hover:bg-gray-400'
+                }`}
+                aria-label={`Go to message ${index}`}
+                title={`Message ${index}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Input Area - Mobile Responsive - Fixed at bottom */}
@@ -676,7 +942,7 @@ export default function Chat() {
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask EnterpriseChatGPT..."
+                placeholder="Ask IremboChat..."
                 className={`flex-1 px-3 md:px-5 py-2.5 md:py-3.5 bg-transparent rounded-2xl focus:outline-none text-sm ${darkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
                   }`}
                 disabled={loading}
@@ -697,7 +963,7 @@ export default function Chat() {
           </form>
           {!hasMessages && (
             <p className={`text-center text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-              EnterpriseChatGPT can make mistakes. Check important info.
+              IremboChat can make mistakes. Check important info.
             </p>
           )}
         </div>
@@ -885,11 +1151,11 @@ export default function Chat() {
 
                 {settingsTab === 'about' && (
                   <div>
-                    <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>About EnterpriseChatGPT</h3>
+                    <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>About IremboChat</h3>
 
                     <div className={`space-y-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       <p className="leading-relaxed">
-                        <strong className={darkMode ? 'text-white' : 'text-gray-900'}>EnterpriseChatGPT</strong> is an advanced AI-powered chat application built with enterprise-grade Retrieval-Augmented Generation (RAG 2.0) technology, powered entirely by local open-source models.
+                        <strong className={darkMode ? 'text-white' : 'text-gray-900'}>IremboChat</strong> is an advanced AI-powered chat application built with enterprise-grade Retrieval-Augmented Generation (RAG 2.0) technology, powered entirely by local open-source models.
                       </p>
 
                       <p className="leading-relaxed">

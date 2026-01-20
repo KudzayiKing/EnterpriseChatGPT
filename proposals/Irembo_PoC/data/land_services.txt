@@ -1,0 +1,53 @@
+# Irembo Land Services
+
+## Land Registration
+**Description:** This service allows citizens to register their land for the first time. It is mandatory for all land parcels in Rwanda to be registered.
+**Requirements:**
+- Proof of identity (ID card or Passport)
+- Supporting documents proving ownership (e.g., cell/sector letter, sale agreement)
+- Witnesses statements if applicable
+**Processing Time:** 7-14 working days
+**Price:** 5,000 RWF
+
+## Title Transfer - Voluntary Sale
+**Description:** Used when a land title needs to be transferred from one owner to another due to a voluntary sale.
+**Requirements:**
+- Valid land title of the seller
+- Sale agreement signed by both parties and notarized
+- ID copies of both seller and buyer
+- Proof of payment of transfer fees
+**Processing Time:** 1-5 working days
+**Price:** 30,000 RWF (Transfer fee) + Notary fees
+
+## Title Transfer - Subscription/Donation
+**Description:** Transfer of land title as a gift or donation.
+**Requirements:**
+- Donation agreement/letter
+- ID copies of donor and recipient
+- Original land title
+**Processing Time:** 5 working days
+**Price:** 5,000 RWF
+
+## Land Subdivision
+**Description:** Service to split one parcel of land into two or more smaller parcels.
+**Requirements:**
+- Original land title
+- Approved subdivision plan by a surveyor
+- Payment of subdivision fees
+**Processing Time:** 10 working days
+**Price:** 10,000 RWF per resulting parcel
+
+## Rectification of Boundaries
+**Description:** Used to correct the boundaries of a land parcel if they were incorrectly recorded.
+**Requirements:**
+- Application letter explaining the error
+- Report from a surveyor
+- Consent from neighbors if boundaries affect them
+**Processing Time:** 14 working days
+
+## Merging of Land Parcels
+**Description:** Combining two or more adjacent parcels owned by the same person into one title.
+**Requirements:**
+- Original titles of all parcels
+- Approved merging plan
+**Processing Time:** 7 working days

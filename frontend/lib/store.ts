@@ -12,6 +12,7 @@ interface Message {
   role: string;
   content: string;
   sources?: any[];
+  suggested_actions?: any[];
   created_at: string;
 }
 
