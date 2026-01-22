@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { chat, auth } from '@/lib/api';
-import { MessageSquare, Upload, BarChart3, LogOut, Send, Plus, Menu, Sun, Moon, Copy, Download, Check, MoreVertical, X, Settings, User, Info, Home, FileText, Clock, Edit, RefreshCw, Plane, CreditCard, Ticket, DollarSign, CheckSquare, Search, MessageCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { Upload, BarChart3, LogOut, Send, Plus, Menu, Sun, Moon, Copy, Download, Check, MoreVertical, X, Settings, User, Info, Home, FileText, Clock, Edit, RefreshCw, Plane, CreditCard, Ticket, DollarSign, CheckSquare, Search, MessageCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 export default function Chat() {
@@ -194,18 +194,6 @@ export default function Chat() {
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setCurrentMessageIndex(index);
-    }
-  };
-
-  const navigatePrevious = () => {
-    if (currentMessageIndex > 1) {
-      navigateToMessage(currentMessageIndex - 1);
-    }
-  };
-
-  const navigateNext = () => {
-    if (currentMessageIndex < totalMessages) {
-      navigateToMessage(currentMessageIndex + 1);
     }
   };
 
@@ -686,11 +674,20 @@ export default function Chat() {
             // Centered welcome screen
             <div className="h-full flex flex-col items-center justify-center px-4">
               <div className="text-center mb-8">
-                <div className={`text-4xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  How can I help you?
+                {/* Logo */}
+                <div className="flex justify-center mb-6">
+                  <img 
+                    src="https://ik.imagekit.io/ojfedrprt/irembogov-logo.png" 
+                    alt="Irembo Logo" 
+                    className="h-20 w-auto"
+                  />
+                </div>
+                {/* Greeting */}
+                <div className={`text-3xl font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Hi, I'm IremboChat.
                 </div>
                 <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Ask me anything about your documents
+                  How can I help you today?
                 </p>
               </div>
             </div>
