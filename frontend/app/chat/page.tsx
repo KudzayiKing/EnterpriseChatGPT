@@ -669,7 +669,7 @@ export default function Chat() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
         {/* Messages Area - Full height with padding for header/input */}
-        <div ref={messagesContainerRef} className={`absolute inset-0 overflow-y-auto ${darkMode ? 'bg-[#171717]' : 'bg-white'}`} style={{ paddingTop: '120px', paddingBottom: '90px' }}>
+        <div ref={messagesContainerRef} className={`absolute inset-0 overflow-y-auto ${darkMode ? 'bg-[#171717]' : 'bg-white'}`} style={{ paddingTop: '70px', paddingBottom: '90px' }}>
           {!hasMessages ? (
             // Centered welcome screen
             <div className="h-full flex flex-col items-center justify-center px-4">
@@ -839,42 +839,77 @@ export default function Chat() {
         </div>
 
         {/* Header - Mobile Responsive */}
-        <div className={`absolute top-0 left-0 right-0 z-10 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between backdrop-blur-xl ${darkMode
+        <div className={`absolute top-0 left-0 right-0 z-10 backdrop-blur-xl ${darkMode
           ? 'bg-[#171717]/30 border-b border-[#2a2a2a]/30'
           : 'bg-white/30 border-b border-gray-200/30'
           }`}
           style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
         >
-          {/* Left: Hamburger Menu */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
-            aria-label="Toggle menu"
-          >
-            <Menu size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
-          </button>
+          <div className="px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-2">
+            {/* Left: Hamburger Menu */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-2 rounded-lg flex-shrink-0 ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
+              aria-label="Toggle menu"
+            >
+              <Menu size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+            </button>
 
-          {/* Center: Title (hidden on mobile) */}
-          <h2 className={`hidden md:block text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            {currentConversation?.title || 'New Conversation'}
-          </h2>
+            {/* Center: Mode Selector (mobile) or Title (desktop) */}
+            <div className="flex-1 flex items-center justify-center">
+              {/* Mobile: Mode Selector */}
+              <div className="md:hidden flex items-center gap-1.5">
+                <button
+                  onClick={() => setRagMode('fast')}
+                  className={`px-2.5 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
+                    ? darkMode
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
+                      : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
+                    : darkMode
+                      ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
+                      : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
+                    }`}
+                >
+                  Fast (5-15s)
+                </button>
+                <button
+                  onClick={() => setRagMode('accurate')}
+                  className={`px-2.5 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'accurate'
+                    ? darkMode
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
+                      : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
+                    : darkMode
+                      ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
+                      : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
+                    }`}
+                >
+                  Accurate (60-90s)
+                </button>
+              </div>
+              
+              {/* Desktop: Title */}
+              <h2 className={`hidden md:block text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                {currentConversation?.title || 'New Conversation'}
+              </h2>
+            </div>
 
-          {/* Right: New Chat Button */}
-          <button
-            onClick={handleNewChat}
-            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
-            aria-label="New chat"
-          >
-            <Plus size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
-          </button>
+            {/* Right: New Chat Button */}
+            <button
+              onClick={handleNewChat}
+              className={`p-2 rounded-lg flex-shrink-0 ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
+              aria-label="New chat"
+            >
+              <Plus size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+            </button>
+          </div>
         </div>
 
-        {/* Mode Selector - Below header on mobile, inline on desktop */}
-        <div className={`absolute top-14 md:top-4 right-4 z-10 flex items-center gap-2 ${darkMode ? 'bg-[#171717]/80' : 'bg-white/80'} backdrop-blur-md rounded-lg px-2 py-1.5 md:bg-transparent md:backdrop-blur-none md:px-0 md:py-0`}>
-          <span className={`text-xs hidden md:inline ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Mode:</span>
+        {/* Mode Selector - Desktop only (top right corner) */}
+        <div className="hidden md:flex absolute top-4 right-4 z-10 items-center gap-2">
+          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Mode:</span>
           <button
             onClick={() => setRagMode('fast')}
-            className={`px-2 md:px-3 py-1 md:py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
+            className={`px-3 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
               ? darkMode
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
                 : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
