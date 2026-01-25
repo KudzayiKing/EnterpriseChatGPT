@@ -101,29 +101,29 @@ export default function Documents() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="mb-4 sm:mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => router.push('/chat')}
               className="p-2 hover:bg-gray-200 rounded-lg text-gray-700"
             >
-              <ArrowLeft size={24} />
+              <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Documents</h1>
           </div>
         </div>
 
         {/* Login Required Message */}
         {!localStorage.getItem('token') && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-2">Login Required</h2>
-            <p className="text-gray-700 mb-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold mb-2">Login Required</h2>
+            <p className="text-sm sm:text-base text-gray-700 mb-4">
               You need to login to upload and manage documents.
             </p>
             <button
               onClick={() => router.push('/login')}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              className="w-full sm:w-auto px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
               Login / Sign Up
             </button>
@@ -134,16 +134,16 @@ export default function Documents() {
         {localStorage.getItem('token') && (
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-12 text-center mb-8 cursor-pointer transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-6 sm:p-8 lg:p-12 text-center mb-6 sm:mb-8 cursor-pointer transition-colors ${
               isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
             }`}
           >
             <input {...getInputProps()} />
-            <Upload className="mx-auto mb-4 text-gray-400" size={48} />
-            <p className="text-lg mb-2 text-gray-700">
+            <Upload className="mx-auto mb-3 sm:mb-4 text-gray-400" size={36} />
+            <p className="text-base sm:text-lg mb-2 text-gray-700">
               {isDragActive ? 'Drop files here' : 'Drag & drop files here, or click to select'}
             </p>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs sm:text-sm text-gray-600">
               Supported: PDF, DOCX, PPTX, XLSX, HTML, TXT (Max 50MB)
             </p>
             {uploading && (
@@ -157,43 +157,47 @@ export default function Documents() {
 
         {/* Documents List */}
         {localStorage.getItem('token') && (
-          <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b">
-            <h2 className="text-xl font-semibold">Your Documents</h2>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b">
+            <h2 className="text-lg sm:text-xl font-semibold">Your Documents</h2>
           </div>
           
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <div className="p-8 sm:p-12 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary-600 mx-auto"></div>
             </div>
           ) : docs.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <FileText className="mx-auto mb-4 text-gray-300" size={48} />
-              <p>No documents uploaded yet</p>
+            <div className="p-8 sm:p-12 text-center text-gray-500">
+              <FileText className="mx-auto mb-4 text-gray-300" size={40} />
+              <p className="text-sm sm:text-base">No documents uploaded yet</p>
             </div>
           ) : (
             <div className="divide-y">
               {docs.map((doc) => (
-                <div key={doc.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex items-center gap-4 flex-1">
-                    <FileText className="text-gray-400" size={24} />
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{doc.filename}</h3>
-                      <p className="text-sm text-gray-500">
-                        {formatFileSize(doc.file_size)} • {doc.chunk_count} chunks • {new Date(doc.created_at).toLocaleDateString()}
+                <div key={doc.id} className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between hover:bg-gray-50 gap-3 sm:gap-4">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                    <FileText className="text-gray-400 flex-shrink-0 mt-1 sm:mt-0" size={20} />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">{doc.filename}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                        {formatFileSize(doc.file_size)} • {doc.chunk_count} chunks
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5 sm:hidden">
+                        {new Date(doc.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 ml-8 sm:ml-0">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(doc.status)}
-                      <span className="text-sm capitalize text-gray-700">{doc.status}</span>
+                      <span className="text-xs sm:text-sm capitalize text-gray-700">{doc.status}</span>
                     </div>
                     <button
                       onClick={() => handleDelete(doc.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg flex-shrink-0"
+                      aria-label="Delete document"
                     >
-                      <Trash2 size={20} />
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 </div>

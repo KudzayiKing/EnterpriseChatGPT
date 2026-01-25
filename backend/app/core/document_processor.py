@@ -23,6 +23,7 @@ import openpyxl
 from bs4 import BeautifulSoup
 
 from app.core.config import settings
+from app.core.kinyacolbert_embeddings import KinyaColBERTEmbeddings
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,23 @@ class DocumentProcessor:
     def __init__(self):
         # Use local embeddings if configured
         if getattr(settings, 'USE_LOCAL_MODELS', False):
-            if HuggingFaceEmbeddings is None:
-                raise ImportError("Please install: pip install sentence-transformers")
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=settings.LOCAL_EMBEDDING_MODEL,
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
+            # Use KinyaColBERT for superior Kinyarwanda semantic search
+            use_kinyacolbert = getattr(settings, 'USE_KINYACOLBERT', True)
+            
+            if use_kinyacolbert:
+                logger.info("Using KinyaColBERT for Kinyarwanda-specific embeddings")
+                self.embeddings = KinyaColBERTEmbeddings(
+                    model_name=getattr(settings, 'KINYACOLBERT_MODEL', 'anzeyimana/KinyaColBERT'),
+                    device='cpu'
+                )
+            else:
+                if HuggingFaceEmbeddings is None:
+                    raise ImportError("Please install: pip install sentence-transformers")
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=settings.LOCAL_EMBEDDING_MODEL,
+                    model_kwargs={'device': 'cpu'},
+                    encode_kwargs={'normalize_embeddings': True}
+                )
         else:
             if OpenAIEmbeddings is None:
                 raise ImportError("Please install: pip install langchain-openai")
@@ -49,8 +60,9 @@ class DocumentProcessor:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
-            separators=["\n## ", "\n### ", "\n\n", "\n", ". ", " ", ""],  # Keep markdown sections together
-            keep_separator=True  # Keep the separator (headers) with the chunk
+            separators=["\n## ", "\n### ", "\n**", "\n\n", "\n", ". ", " ", ""],  # Keep markdown sections together
+            keep_separator=True,  # Keep the separator (headers) with the chunk
+            is_separator_regex=False
         )
         self.chroma_client = chromadb.PersistentClient(
             path=settings.CHROMA_PERSIST_DIR,

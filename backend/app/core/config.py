@@ -17,8 +17,12 @@ class Settings(BaseSettings):
     
     # Ollama configuration (for local models)
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3.2:3b"  # Faster 3B model for better performance
-    LOCAL_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    OLLAMA_MODEL: str = "qwen2.5:7b"  # Multilingual model with good Kinyarwanda support
+    LOCAL_EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # Multilingual embeddings
+    
+    # Kinyarwanda-specific models
+    USE_KINYACOLBERT: bool = True  # Use KinyaColBERT for superior Kinyarwanda semantic search
+    KINYACOLBERT_MODEL: str = "anzeyimana/KinyaColBERT"  # Kinyarwanda-specific ColBERT model
     
     # Application
     ENVIRONMENT: str = "development"

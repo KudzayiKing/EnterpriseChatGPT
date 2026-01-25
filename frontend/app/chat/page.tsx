@@ -4,12 +4,15 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { chat, auth } from '@/lib/api';
-import { Upload, BarChart3, LogOut, Send, Plus, Menu, Sun, Moon, Copy, Download, Check, MoreVertical, X, Settings, User, Info, Home, FileText, Clock, Edit, RefreshCw, Plane, CreditCard, Ticket, DollarSign, CheckSquare, Search, MessageCircle } from 'lucide-react';
+import { Upload, BarChart3, LogOut, Send, Plus, Menu, Sun, Moon, Copy, Download, Check, MoreVertical, X, Settings, User, Info, Home, FileText, Clock, Edit, RefreshCw, Plane, CreditCard, Ticket, DollarSign, CheckSquare, Search, MessageCircle, ArrowUp, Mic, MicOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import LanguagePicker from '@/components/LanguagePicker';
+import { getTranslation, languages } from '@/lib/translations';
 
 export default function Chat() {
   const router = useRouter();
-  const { user, setUser, token, setToken, currentConversation, setCurrentConversation, conversations, setConversations, logout } = useStore();
+  const { user, setUser, token, setToken, currentConversation, setCurrentConversation, conversations, setConversations, logout, language, setLanguage } = useStore();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -24,10 +27,57 @@ export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [longPressConvId, setLongPressConvId] = useState<number | null>(null);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [currentMessageIndex, setCurrentMessageIndex] = useState<number>(0);
   const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [menuOpenConvId, setMenuOpenConvId] = useState<number | null>(null);
+  const [renamingConvId, setRenamingConvId] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState<string>('');
+  const [pinnedConversations, setPinnedConversations] = useState<Set<number>>(new Set());
+  const [hoveredMessageIndex, setHoveredMessageIndex] = useState<number | null>(null);
+
+  // Get current language voice code
+  const currentLangVoiceCode = languages.find(l => l.code === language)?.voiceCode || 'rw-RW';
+
+  // Voice input
+  const handleVoiceResult = (transcript: string) => {
+    setMessage(transcript);
+  };
+
+  const { isListening, isSupported, toggleListening, startListening, stopListening } = useVoiceInput({
+    onResult: handleVoiceResult,
+    language: currentLangVoiceCode,
+    continuous: false
+  });
+
+  // Restart voice recognition when language changes
+  useEffect(() => {
+    if (isListening) {
+      stopListening();
+    }
+  }, [language]);
+
+  // Get question preview for pagination tooltip
+  const getQuestionPreview = (index: number): string => {
+    if (!currentConversation || !currentConversation.messages) return '';
+    const userMessages = currentConversation.messages.filter(m => m.role === 'user');
+    if (index > 0 && index <= userMessages.length) {
+      const question = userMessages[index - 1].content;
+      // Truncate to 50 characters
+      return question.length > 50 ? question.substring(0, 50) + '...' : question;
+    }
+    return '';
+  };
+
+  // Detect if text is in Kinyarwanda
+  const isKinyarwanda = (text: string): boolean => {
+    const kinyarwandaKeywords = [
+      'ubutaka', 'amafaranga', 'ibisabwa', 'nyandiko', 'igihe', 'viza', 'pasiporo',
+      'indangamuntu', 'serivisi', 'gute', 'angahe', 'izihe', 'nkeneye', 'nshobora',
+      'kwandikisha', 'kugabanya', 'kwimura', 'gusaba', 'kubona', 'gutegura'
+    ];
+    const lowerText = text.toLowerCase();
+    return kinyarwandaKeywords.some(keyword => lowerText.includes(keyword));
+  };
 
   // Icon mapping for action buttons
   const getActionIcon = (actionId: string) => {
@@ -59,11 +109,11 @@ export default function Chat() {
   };
 
   // Handle action button click - auto-submit for chat actions
-  const handleActionClick = async (action: any) => {
+  const handleActionClick = async (action: any, queryLanguage: 'en' | 'rw' = 'en') => {
     if (action.action === 'chat') {
-      // Auto-submit the message instead of just populating input
-      const userMessage = action.message;
-      
+      // Use Kinyarwanda message if available and query was in Kinyarwanda
+      const userMessage = (queryLanguage === 'rw' && action.message_rw) ? action.message_rw : action.message;
+
       // Add user message to conversation immediately
       const tempUserMessage = {
         id: Date.now(),
@@ -184,13 +234,13 @@ export default function Chat() {
   // Navigate to specific message pair (question + answer)
   const navigateToMessage = (index: number) => {
     if (!currentConversation || !currentConversation.messages) return;
-    
+
     const userMessages = currentConversation.messages.filter(m => m.role === 'user');
     if (index < 1 || index > userMessages.length) return;
-    
+
     const targetMessage = userMessages[index - 1];
     const messageElement = document.getElementById(`message-${targetMessage.id}`);
-    
+
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setCurrentMessageIndex(index);
@@ -374,7 +424,7 @@ export default function Chat() {
     } catch (error: any) {
       console.error('Error sending message:', error);
       setLoading(false);
-      
+
       if (error.response?.status === 401) {
         // Token expired - user will be redirected by interceptor
         alert('Your session has expired. Please log in again.');
@@ -405,7 +455,7 @@ export default function Chat() {
   const handleDeleteConversation = async (id: number) => {
     try {
       await chat.deleteConversation(id);
-      setLongPressConvId(null);
+      setMenuOpenConvId(null);
       if (currentConversation?.id === id) {
         setCurrentConversation(null);
       }
@@ -416,18 +466,76 @@ export default function Chat() {
     }
   };
 
-  const handleLongPressStart = (id: number) => {
-    longPressTimerRef.current = setTimeout(() => {
-      setLongPressConvId(id);
-    }, 500); // 500ms long press
-  };
+  const handleRenameConversation = async (id: number, newTitle: string) => {
+    if (!newTitle.trim()) return;
 
-  const handleLongPressEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+    try {
+      // Update conversation title via API (you'll need to add this endpoint)
+      // For now, we'll update locally
+      const updatedConversations = conversations.map(conv =>
+        conv.id === id ? { ...conv, title: newTitle } : conv
+      );
+      setConversations(updatedConversations);
+
+      if (currentConversation?.id === id) {
+        setCurrentConversation({ ...currentConversation, title: newTitle });
+      }
+
+      setRenamingConvId(null);
+      setMenuOpenConvId(null);
+    } catch (error) {
+      console.error('Error renaming conversation:', error);
+      alert('Failed to rename conversation');
     }
   };
+
+  const handlePinConversation = (id: number) => {
+    setPinnedConversations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      // Save to localStorage
+      localStorage.setItem('pinnedConversations', JSON.stringify(Array.from(newSet)));
+      return newSet;
+    });
+    setMenuOpenConvId(null);
+  };
+
+  const handleShareConversation = async (id: number) => {
+    try {
+      const conv = conversations.find(c => c.id === id);
+      if (!conv) return;
+
+      // Create shareable text
+      const shareText = `Check out this conversation: ${conv.title}`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: conv.title,
+          text: shareText,
+          url: window.location.href
+        });
+      } else {
+        // Fallback: copy to clipboard
+        await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+        alert('Link copied to clipboard!');
+      }
+      setMenuOpenConvId(null);
+    } catch (error) {
+      console.error('Error sharing conversation:', error);
+    }
+  };
+
+  // Load pinned conversations from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('pinnedConversations');
+    if (saved) {
+      setPinnedConversations(new Set(JSON.parse(saved)));
+    }
+  }, []);
 
   const handleCopyMessage = async (content: string, messageId: number) => {
     try {
@@ -526,9 +634,9 @@ export default function Chat() {
             </div>
             {/* Logo */}
             <div className="flex items-center justify-center">
-              <img 
-                src="https://ik.imagekit.io/ojfedrprt/irembogov-logo.png" 
-                alt="Irembo Logo" 
+              <img
+                src="https://ik.imagekit.io/ojfedrprt/irembogov-logo.png"
+                alt="Irembo Logo"
                 className="h-16 w-auto"
               />
             </div>
@@ -536,51 +644,271 @@ export default function Chat() {
 
           <button
             onClick={handleNewChat}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-[24px] mb-4 ${darkMode
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-3xl mb-4 ${darkMode
               ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30'
               : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-600 border border-blue-600/30'
               }`}
           >
             <Plus size={18} />
-            <span>New Chat</span>
+            <span>{getTranslation(language, 'newChat')}</span>
           </button>
 
           <div className="flex-1 overflow-y-auto space-y-1 mb-4">
-            {conversations.map((conv) => (
-              <div key={conv.id} className="relative group">
-                <button
-                  onClick={() => handleSelectConversation(conv.id)}
-                  onMouseDown={() => handleLongPressStart(conv.id)}
-                  onMouseUp={handleLongPressEnd}
-                  onMouseLeave={handleLongPressEnd}
-                  onTouchStart={() => handleLongPressStart(conv.id)}
-                  onTouchEnd={handleLongPressEnd}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors ${currentConversation?.id === conv.id
-                    ? darkMode ? 'bg-[#232323] text-white' : 'bg-gray-200 text-gray-900'
-                    : darkMode ? 'text-gray-400 hover:bg-[#232323] hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                    }`}
-                >
-                  {conv.title}
-                </button>
-                {longPressConvId === conv.id && (
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 rounded-lg backdrop-blur-sm z-10 px-2">
-                    <button
-                      onClick={() => handleDeleteConversation(conv.id)}
-                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium transition-colors"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => setLongPressConvId(null)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${darkMode ? 'bg-[#232323] hover:bg-[#2a2a2a] text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                        }`}
-                    >
-                      Cancel
-                    </button>
+            {/* Pinned Conversations */}
+            {conversations.filter(conv => pinnedConversations.has(conv.id)).length > 0 && (
+              <>
+                <div className={`px-3 py-2 text-xs font-semibold ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                  Pinned
+                </div>
+                {conversations
+                  .filter(conv => pinnedConversations.has(conv.id))
+                  .map((conv) => (
+                    <div key={conv.id} className="relative">
+                      {renamingConvId === conv.id ? (
+                        <div className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={() => {
+                              handleRenameConversation(conv.id, renameValue);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleRenameConversation(conv.id, renameValue);
+                              } else if (e.key === 'Escape') {
+                                setRenamingConvId(null);
+                              }
+                            }}
+                            autoFocus
+                            className={`w-full px-2 py-1 rounded text-sm ${darkMode
+                              ? 'bg-[#232323] text-white border border-[#333333]'
+                              : 'bg-white text-gray-900 border border-gray-300'
+                              } focus:outline-none focus:ring-2 focus:ring-blue-600`}
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleSelectConversation(conv.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg text-sm truncate transition-colors relative ${currentConversation?.id === conv.id
+                            ? darkMode ? 'bg-[#232323] text-white' : 'bg-gray-200 text-gray-900'
+                            : darkMode ? 'text-gray-400 hover:bg-[#232323] hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                            }`}
+                        >
+                          {/* 3-dot icon in top-right */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenConvId(menuOpenConvId === conv.id ? null : conv.id);
+                            }}
+                            className={`absolute top-1/2 -translate-y-1/2 right-2 p-1 rounded-lg transition-colors ${darkMode ? 'hover:bg-[#2a2a2a] text-gray-500' : 'hover:bg-gray-300 text-gray-500'
+                              }`}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {/* Conversation title */}
+                          <span className="block pr-8 truncate">{conv.title}</span>
+                        </button>
+                      )}
+
+                      {/* Dropdown Menu */}
+                      {menuOpenConvId === conv.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setMenuOpenConvId(null)}
+                          />
+                          <div className={`absolute right-2 top-10 z-50 w-48 rounded-lg shadow-lg border ${darkMode
+                            ? 'bg-[#232323] border-[#333333]'
+                            : 'bg-white border-gray-200'
+                            }`}>
+                            <button
+                              onClick={() => {
+                                setRenameValue(conv.title);
+                                setRenamingConvId(conv.id);
+                                setMenuOpenConvId(null);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
+                                ? 'text-gray-300 hover:bg-[#2a2a2a]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              <Edit size={16} />
+                              <span>Rename</span>
+                            </button>
+                            <button
+                              onClick={() => handlePinConversation(conv.id)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
+                                ? 'text-gray-300 hover:bg-[#2a2a2a]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" transform="rotate(45 10 10)" />
+                              </svg>
+                              <span>Unpin</span>
+                            </button>
+                            <button
+                              onClick={() => handleShareConversation(conv.id)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
+                                ? 'text-gray-300 hover:bg-[#2a2a2a]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                              </svg>
+                              <span>Share</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteConversation(conv.id)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-b-lg transition-colors ${darkMode
+                                ? 'text-red-400 hover:bg-red-900/20'
+                                : 'text-red-600 hover:bg-red-50'
+                                }`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+              </>
+            )}
+
+            {/* Regular Conversations */}
+            {conversations.filter(conv => !pinnedConversations.has(conv.id)).length > 0 && (
+              <>
+                {pinnedConversations.size > 0 && (
+                  <div className={`px-3 py-2 text-xs font-semibold ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    Recent
                   </div>
                 )}
-              </div>
-            ))}
+                {conversations
+                  .filter(conv => !pinnedConversations.has(conv.id))
+                  .map((conv) => (
+                    <div key={conv.id} className="relative">
+                      {renamingConvId === conv.id ? (
+                        <div className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={() => {
+                              handleRenameConversation(conv.id, renameValue);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleRenameConversation(conv.id, renameValue);
+                              } else if (e.key === 'Escape') {
+                                setRenamingConvId(null);
+                              }
+                            }}
+                            autoFocus
+                            className={`w-full px-2 py-1 rounded text-sm ${darkMode
+                              ? 'bg-[#232323] text-white border border-[#333333]'
+                              : 'bg-white text-gray-900 border border-gray-300'
+                              } focus:outline-none focus:ring-2 focus:ring-blue-600`}
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleSelectConversation(conv.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg text-sm truncate transition-colors relative ${currentConversation?.id === conv.id
+                            ? darkMode ? 'bg-[#232323] text-white' : 'bg-gray-200 text-gray-900'
+                            : darkMode ? 'text-gray-400 hover:bg-[#232323] hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                            }`}
+                        >
+                          {/* 3-dot icon in top-right */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenConvId(menuOpenConvId === conv.id ? null : conv.id);
+                            }}
+                            className={`absolute top-1/2 -translate-y-1/2 right-2 p-1 rounded-lg transition-colors ${darkMode ? 'hover:bg-[#2a2a2a] text-gray-500' : 'hover:bg-gray-300 text-gray-500'
+                              }`}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {/* Conversation title */}
+                          <span className="block pr-8 truncate">{conv.title}</span>
+                        </button>
+                      )}
+
+                      {/* Dropdown Menu */}
+                      {menuOpenConvId === conv.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setMenuOpenConvId(null)}
+                          />
+                          <div className={`absolute right-2 top-10 z-50 w-48 rounded-lg shadow-lg border ${darkMode
+                            ? 'bg-[#232323] border-[#333333]'
+                            : 'bg-white border-gray-200'
+                            }`}>
+                            <button
+                              onClick={() => {
+                                setRenameValue(conv.title);
+                                setRenamingConvId(conv.id);
+                                setMenuOpenConvId(null);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
+                                ? 'text-gray-300 hover:bg-[#2a2a2a]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              <Edit size={16} />
+                              <span>Rename</span>
+                            </button>
+                            <button
+                              onClick={() => handlePinConversation(conv.id)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
+                                ? 'text-gray-300 hover:bg-[#2a2a2a]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" transform="rotate(45 10 10)" />
+                              </svg>
+                              <span>Pin</span>
+                            </button>
+                            <button
+                              onClick={() => handleShareConversation(conv.id)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
+                                ? 'text-gray-300 hover:bg-[#2a2a2a]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                              </svg>
+                              <span>Share</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteConversation(conv.id)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-b-lg transition-colors ${darkMode
+                                ? 'text-red-400 hover:bg-red-900/20'
+                                : 'text-red-600 hover:bg-red-50'
+                                }`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+              </>
+            )}
           </div>
 
           <div className={`mt-auto border-t pt-4 space-y-1 flex-shrink-0 ${darkMode ? 'border-[#2a2a2a]' : 'border-gray-200'}`}>
@@ -643,6 +971,11 @@ export default function Chat() {
                     </button>
                   </div>
 
+                  {/* Language Picker */}
+                  <div className="mt-2">
+                    <LanguagePicker darkMode={darkMode} />
+                  </div>
+
                   {/* Logout button */}
                   <button
                     onClick={handleLogout}
@@ -650,7 +983,7 @@ export default function Chat() {
                       }`}
                   >
                     <LogOut size={18} />
-                    <span>Logout</span>
+                    <span>{getTranslation(language, 'logout')}</span>
                   </button>
                 </div>
               </>
@@ -676,9 +1009,9 @@ export default function Chat() {
               <div className="text-center mb-8">
                 {/* Logo */}
                 <div className="flex justify-center mb-6">
-                  <img 
-                    src="https://ik.imagekit.io/ojfedrprt/irembogov-logo.png" 
-                    alt="Irembo Logo" 
+                  <img
+                    src="https://ik.imagekit.io/ojfedrprt/irembogov-logo.png"
+                    alt="Irembo Logo"
                     className="h-20 w-auto"
                   />
                 </div>
@@ -759,45 +1092,54 @@ export default function Chat() {
                         </div>
 
                         {/* Suggested Actions */}
-                        {msg.suggested_actions && msg.suggested_actions.length > 0 && (
-                          <div className="mt-4 pt-3 border-t border-dashed" style={{ borderColor: darkMode ? '#333333' : '#e5e7eb' }}>
-                            <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-                              <Info size={14} className="text-blue-500" />
-                              <span>Suggested Actions</span>
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {msg.suggested_actions.map((action: any) => {
-                                const IconComponent = getActionIcon(action.id);
-                                return (
-                                  <button
-                                    key={action.id}
-                                    onClick={() => handleActionClick(action)}
-                                    className={`
+                        {msg.suggested_actions && msg.suggested_actions.length > 0 && (() => {
+                          // Find the previous user message to detect language
+                          const msgIndex = currentConversation.messages.findIndex(m => m.id === msg.id);
+                          const prevUserMsg = currentConversation.messages.slice(0, msgIndex).reverse().find(m => m.role === 'user');
+                          const queryLanguage = prevUserMsg && isKinyarwanda(prevUserMsg.content) ? 'rw' : 'en';
+
+                          return (
+                            <div className="mt-4 pt-3 border-t border-dashed" style={{ borderColor: darkMode ? '#333333' : '#e5e7eb' }}>
+                              <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+                                <Info size={14} className="text-blue-500" />
+                                <span>{queryLanguage === 'rw' ? 'Ibikorwa Bisabwa' : 'Suggested Actions'}</span>
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {msg.suggested_actions.map((action: any) => {
+                                  const IconComponent = getActionIcon(action.id);
+                                  const displayLabel = (queryLanguage === 'rw' && action.label_rw) ? action.label_rw : action.label;
+
+                                  return (
+                                    <button
+                                      key={action.id}
+                                      onClick={() => handleActionClick(action, queryLanguage)}
+                                      className={`
                                       flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
                                       transition-all duration-200 transform hover:scale-105
                                       ${action.type === 'primary'
-                                        ? darkMode
-                                          ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30'
-                                          : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-600 border border-blue-600/30'
-                                        : darkMode
-                                          ? 'bg-[#2a2a2a] hover:bg-[#333333] text-gray-300 border border-[#404040]'
-                                          : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm'
-                                      }
+                                          ? darkMode
+                                            ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30'
+                                            : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-600 border border-blue-600/30'
+                                          : darkMode
+                                            ? 'bg-[#2a2a2a] hover:bg-[#333333] text-gray-300 border border-[#404040]'
+                                            : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm'
+                                        }
                                     `}
-                                  >
-                                    <IconComponent size={16} />
-                                    <span>{action.label}</span>
-                                    {action.action === 'external' && (
-                                      <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                      </svg>
-                                    )}
-                                  </button>
-                                );
-                              })}
+                                    >
+                                      <IconComponent size={16} />
+                                      <span>{displayLabel}</span>
+                                      {action.action === 'external' && (
+                                        <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -857,36 +1199,6 @@ export default function Chat() {
 
             {/* Center: Mode Selector (mobile) or Title (desktop) */}
             <div className="flex-1 flex items-center justify-center">
-              {/* Mobile: Mode Selector */}
-              <div className="md:hidden flex items-center gap-1.5">
-                <button
-                  onClick={() => setRagMode('fast')}
-                  className={`px-2.5 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
-                    ? darkMode
-                      ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                      : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
-                    : darkMode
-                      ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
-                      : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
-                    }`}
-                >
-                  Fast (5-15s)
-                </button>
-                <button
-                  onClick={() => setRagMode('accurate')}
-                  className={`px-2.5 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'accurate'
-                    ? darkMode
-                      ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                      : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
-                    : darkMode
-                      ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
-                      : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
-                    }`}
-                >
-                  Accurate (60-90s)
-                </button>
-              </div>
-              
               {/* Desktop: Title */}
               <h2 className={`hidden md:block text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 {currentConversation?.title || 'New Conversation'}
@@ -896,7 +1208,7 @@ export default function Chat() {
             {/* Right: New Chat Button */}
             <button
               onClick={handleNewChat}
-              className={`p-2 rounded-lg flex-shrink-0 ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
+              className={`p-2 rounded-3xl flex-shrink-0 ${darkMode ? 'hover:bg-[#232323]/50' : 'hover:bg-gray-100/50'}`}
               aria-label="New chat"
             >
               <Plus size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
@@ -904,55 +1216,54 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Mode Selector - Desktop only (top right corner) */}
-        <div className="hidden md:flex absolute top-4 right-4 z-10 items-center gap-2">
-          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Mode:</span>
-          <button
-            onClick={() => setRagMode('fast')}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'fast'
-              ? darkMode
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
-              : darkMode
-                ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
-                : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
-              }`}
-          >
-            Fast (5-15s)
-          </button>
-          <button
-            onClick={() => setRagMode('accurate')}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-all ${ragMode === 'accurate'
-              ? darkMode
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                : 'bg-blue-600/20 text-blue-600 border border-blue-600/30'
-              : darkMode
-                ? 'bg-[#232323]/50 text-gray-400 hover:bg-[#2a2a2a]/50 border border-transparent'
-                : 'bg-gray-200/50 text-gray-600 hover:bg-gray-300/50 border border-transparent'
-              }`}
-          >
-            Accurate (60-90s)
-          </button>
-        </div>
-
         {/* Message Navigation Dots - Horizontal pills in vertical column */}
         {hasMessages && totalMessages > 1 && (
           <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-10 flex flex-col gap-2">
-            {Array.from({ length: totalMessages }, (_, i) => i + 1).map((index) => (
-              <button
-                key={index}
-                onClick={() => navigateToMessage(index)}
-                className={`h-2 w-8 rounded-full transition-all duration-300 ${
-                  index === currentMessageIndex
-                    ? 'bg-blue-500 w-10'
-                    : darkMode
-                      ? 'bg-gray-600 hover:bg-gray-500'
-                      : 'bg-gray-300 hover:bg-gray-400'
-                }`}
-                aria-label={`Go to message ${index}`}
-                title={`Message ${index}`}
-              />
-            ))}
+            {Array.from({ length: totalMessages }, (_, i) => i + 1).map((index) => {
+              const questionPreview = getQuestionPreview(index);
+              return (
+                <div key={index} className="relative group">
+                  <button
+                    onClick={() => navigateToMessage(index)}
+                    onMouseEnter={() => setHoveredMessageIndex(index)}
+                    onMouseLeave={() => setHoveredMessageIndex(null)}
+                    className={`h-2 w-8 rounded-full transition-all duration-300 ${index === currentMessageIndex
+                      ? 'bg-blue-500 w-10'
+                      : darkMode
+                        ? 'bg-gray-600 hover:bg-gray-500'
+                        : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                    aria-label={`Go to message ${index}`}
+                  />
+                  {/* Tooltip */}
+                  {hoveredMessageIndex === index && questionPreview && (
+                    <div className={`absolute right-12 top-1/2 transform -translate-y-1/2 px-3 py-2 rounded-lg shadow-lg whitespace-nowrap text-sm max-w-xs ${
+                      darkMode 
+                        ? 'bg-gray-800 text-gray-200 border border-gray-700' 
+                        : 'bg-white text-gray-800 border border-gray-200'
+                    }`}
+                    style={{ 
+                      animation: 'fadeIn 0.2s ease-in',
+                      pointerEvents: 'none'
+                    }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Q{index}:
+                        </span>
+                        <span className="truncate max-w-[250px]">{questionPreview}</span>
+                      </div>
+                      {/* Arrow pointing to dot */}
+                      <div className={`absolute right-[-6px] top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-[6px] border-b-[6px] border-l-[6px] ${
+                        darkMode ? 'border-l-gray-800 border-t-transparent border-b-transparent' : 'border-l-white border-t-transparent border-b-transparent'
+                      }`}
+                      style={{ filter: darkMode ? 'drop-shadow(1px 0 0 rgba(55, 65, 81, 0.5))' : 'drop-shadow(1px 0 0 rgba(229, 231, 235, 0.5))' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -962,7 +1273,7 @@ export default function Chat() {
         }`}
         style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
       >
-        <div className="max-w-3xl mx-auto px-3 md:px-4 py-3 md:py-4">
+        <div className="max-w-4xl mx-auto px-4 py-3 md:py-4">
           <form onSubmit={handleSendMessage}>
             <div className={`flex items-center gap-1 md:gap-2 rounded-2xl md:rounded-2xl border backdrop-blur-lg ${darkMode
               ? 'bg-[#232323]/50 border-[#333333]/50 shadow-lg'
@@ -974,11 +1285,33 @@ export default function Chat() {
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask IremboChat..."
+                placeholder={getTranslation(language, 'placeholder')}
                 className={`flex-1 px-3 md:px-5 py-2.5 md:py-3.5 bg-transparent rounded-2xl focus:outline-none text-sm ${darkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
                   }`}
                 disabled={loading}
               />
+              {/* Voice Input Button */}
+              {isSupported && (
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  disabled={loading}
+                  className={`p-2 md:p-2.5 rounded-xl transition-all ${
+                    isListening
+                      ? 'bg-red-500/20 text-red-500 animate-pulse'
+                      : darkMode
+                      ? 'bg-[#2a2a2a]/50 hover:bg-[#2a2a2a] text-gray-400 hover:text-gray-300'
+                      : 'bg-gray-200/50 hover:bg-gray-200 text-gray-600 hover:text-gray-700'
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                  title={isListening ? getTranslation(language, 'stopVoice') : getTranslation(language, 'startVoice')}
+                >
+                  {isListening ? (
+                    <MicOff size={18} className="md:w-[18px] md:h-[18px] w-[16px] h-[16px]" />
+                  ) : (
+                    <Mic size={18} className="md:w-[18px] md:h-[18px] w-[16px] h-[16px]" />
+                  )}
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={loading || !message.trim()}
@@ -989,7 +1322,7 @@ export default function Chat() {
                   : darkMode ? 'bg-[#2a2a2a]/50 text-gray-500' : 'bg-gray-200/50 text-gray-400'
                   } disabled:cursor-not-allowed`}
               >
-                <Send size={18} className="md:w-[18px] md:h-[18px] w-[16px] h-[16px]" />
+                <ArrowUp size={18} className="md:w-[18px] md:h-[18px] w-[16px] h-[16px]" />
               </button>
             </div>
           </form>

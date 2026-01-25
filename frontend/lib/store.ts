@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Language } from './translations';
 
 interface User {
   id: number;
@@ -29,10 +30,12 @@ interface AppState {
   token: string | null;
   currentConversation: Conversation | null;
   conversations: Conversation[];
+  language: Language;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setCurrentConversation: (conversation: Conversation | null) => void;
   setConversations: (conversations: Conversation[]) => void;
+  setLanguage: (language: Language) => void;
   logout: () => void;
 }
 
@@ -41,6 +44,7 @@ export const useStore = create<AppState>((set) => ({
   token: null,
   currentConversation: null,
   conversations: [],
+  language: (typeof window !== 'undefined' ? localStorage.getItem('language') as Language : null) || 'rw',
   setUser: (user) => set({ user }),
   setToken: (token) => {
     if (token) {
@@ -52,6 +56,12 @@ export const useStore = create<AppState>((set) => ({
   },
   setCurrentConversation: (conversation) => set({ currentConversation: conversation }),
   setConversations: (conversations) => set({ conversations }),
+  setLanguage: (language) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('language', language);
+    }
+    set({ language });
+  },
   logout: () => {
     localStorage.removeItem('token');
     set({ user: null, token: null, currentConversation: null, conversations: [] });
