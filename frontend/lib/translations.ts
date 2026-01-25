@@ -16,6 +16,10 @@ export const translations = {
     settings: 'Igenamiterere',
     logout: 'Sohoka',
     
+    // Welcome Message
+    welcomeTitle: 'Muraho, ndi IremboChat.',
+    welcomeSubtitle: 'Nshobora kukufasha gute uyu munsi?',
+    
     // Messages
     loading: 'Tegereza...',
     typing: 'Yandika...',
@@ -53,6 +57,10 @@ export const translations = {
     settings: 'Settings',
     logout: 'Logout',
     
+    // Welcome Message
+    welcomeTitle: "Hi, I'm IremboChat.",
+    welcomeSubtitle: 'How can I help you today?',
+    
     // Messages
     loading: 'Loading...',
     typing: 'Typing...',
@@ -89,6 +97,10 @@ export const translations = {
     analytics: 'Analytique',
     settings: 'Paramètres',
     logout: 'Déconnexion',
+    
+    // Welcome Message
+    welcomeTitle: 'Bonjour, je suis IremboChat.',
+    welcomeSubtitle: 'Comment puis-je vous aider aujourd\'hui?',
     
     // Messages
     loading: 'Chargement...',

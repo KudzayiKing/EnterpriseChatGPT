@@ -28,6 +28,7 @@ export const useVoiceInput = ({
         recognition.lang = language;
 
         recognition.onstart = () => {
+          console.log('Speech recognition started');
           setIsListening(true);
         };
 
@@ -49,9 +50,16 @@ export const useVoiceInput = ({
         recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
           setIsListening(false);
+          // Auto-stop on error
+          try {
+            recognition.stop();
+          } catch (e) {
+            // Ignore if already stopped
+          }
         };
 
         recognition.onend = () => {
+          console.log('Speech recognition ended');
           setIsListening(false);
         };
 
@@ -70,23 +78,35 @@ export const useVoiceInput = ({
     if (recognitionRef.current && !isListening) {
       try {
         recognitionRef.current.start();
+        setIsListening(true);
       } catch (error) {
         console.error('Error starting recognition:', error);
+        // If already started, just update state
+        if ((error as any).message?.includes('already started')) {
+          setIsListening(true);
+        }
       }
     }
   };
 
   const stopListening = () => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        setIsListening(false);
+      } catch (error) {
+        console.error('Error stopping recognition:', error);
+      }
     }
   };
 
   const toggleListening = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
+    if (recognitionRef.current) {
+      if (isListening) {
+        stopListening();
+      } else {
+        startListening();
+      }
     }
   };
 

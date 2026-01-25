@@ -1017,10 +1017,10 @@ export default function Chat() {
                 </div>
                 {/* Greeting */}
                 <div className={`text-3xl font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Hi, I'm IremboChat.
+                  {getTranslation(language, 'welcomeTitle')}
                 </div>
                 <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  How can I help you today?
+                  {getTranslation(language, 'welcomeSubtitle')}
                 </p>
               </div>
             </div>
